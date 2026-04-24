@@ -1,6 +1,11 @@
 <b>This project is a GUI for measuring the CRV SiPM currents. </b>
 
-Both files (currentMeasurement.html and currentMeasurement.py) need to be located in the same directoy at mu2e-dcs-01.fnal.gov 
+Screenshot of the GUI  
+<img width="500" alt="currentMeasurement" src="https://github.com/user-attachments/assets/5129fd98-461d-45b2-bbf7-4b1f0cb1c80e" />  
+  
+  
+The project requires two files: currentMeasurement.html and currentMeasurement.py  
+They need to be located in the same directoy at mu2e-dcs-01.fnal.gov 
 
 To start the GUI do the following steps.
 
@@ -19,9 +24,9 @@ To start the GUI do the following steps.
    Option 2  
    `ssh -L 3300:mu2e-dcs-01.fnal.gov:3300 -J mu2ecrv@mu2egateway01.fnal.gov mu2ecrv@mu2e-dcs-01.fnal.gov`
 
-3. Start the program  
+2. Start the program  
    <pre>cd path/to/files  
    python3 currentMeasurement.py</pre>
 
-4. Start the GUI  
+3. Start the GUI  
    Open a browser tab and go to `localhost:3300`
