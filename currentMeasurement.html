@@ -227,6 +227,26 @@
       }
     }
 
+    // Function to reset fields after a new start
+    function resetFields() {
+      let index = 0;
+      for (let fpga = 0; fpga < 4; fpga++) {
+        for (let cmb = 1; cmb <= 4; cmb++) {
+          for (let col = 1; col <= 4; col++) {
+	    const field = document.getElementById(`field-${index}`);
+            if(field) {
+              field.style.backgroundColor = 'gray';
+            }
+            const channel = document.getElementById(`channel-${index}`);
+            if(channel) {
+	      channel.innerText = '0.000';
+	    }
+            index++;
+          }
+        }
+      }
+    }
+
     // Function to update the field colors based on their values
     function updateFieldColor(fieldId, value) {
       const field = document.getElementById('field-'+fieldId);
@@ -313,6 +333,7 @@
       const threshold = parseFloat(document.getElementById('threshold').value);
       
       if (ip && port && !isNaN(feb) && !isNaN(threshold)) {
+        resetFields();
         socket.send(JSON.stringify({
            type: "run",
            ip: ip,
