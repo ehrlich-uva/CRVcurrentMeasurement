@@ -2,7 +2,7 @@ import asyncio
 import re
 from enum import Enum
 import telnetlib3
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 import uvicorn
 import logging
@@ -38,6 +38,10 @@ class TelnetClient:
             logging.debug("Telnet connected.")
         except asyncio.TimeoutError:
             logging.error("Couldn't establish Telnet connection.")
+            raise
+        except Exception as a:
+            logging.error(f"Unknown error when trying to establich Telnet connection")
+            logging.error(str(a))
             raise
 
     #end a telnet connection
@@ -159,23 +163,20 @@ class Controller:
                 response = await self.switchFeb(feb)
             if response is False:  #still not switched
                 logging.error(f"Failed to switch to FEB {feb} after 2nd attempt. Stopping.")
-                await ws.send_json({
-                    "type": "error",
-                    "message": "inactive/unresponsive FEB",
-                })
+                await self.telnet.disconnect()
+                await ws.send_json({"type": "error", "message": "inactive/unresponsive FEB"})
+                stopping=False
+                running=False
                 return
         else:
             logging.error(f"Invalid FEB: {feb}. Stopping.")
-            await ws.send_json({
-                    "type": "error",
-                    "message": "invalid FEB",
-            })
+            await self.telnet.disconnect()
+            await ws.send_json({"type": "error", "message": "invalid FEB"})
+            stopping=False
+            running=False
             return
 
-        await ws.send_json({
-           "type": "status",
-           "message": f"switched to FEB {feb} - taking data",
-        })
+        await ws.send_json({"type": "status", "message": f"switched to FEB {feb} - taking data"})
 
         #loop through all channels
         for fpga in range(4):
@@ -192,33 +193,19 @@ class Controller:
 
                 if result is None:    #still not working
                     logging.error(f"Couldn't read FPGA {fpga} / channel {channel}. Moving to next channel.")
-                    await ws.send_json({
-                       "type": "result",
-                       "channel": fpga*16+channel,
-                       "value": "error"
-                    })
+                    await ws.send_json({"type": "result", "channel": fpga*16+channel, "value": "error"})
                 else:
                     logging.debug(f"Measured current of FPGA {fpga} / channel {channel}: {result} uA")
-                    await ws.send_json({
-                       "type": "result",
-                       "channel": fpga*16+channel,
-                       "value": result
-                    })
+                    await ws.send_json({"type": "result", "channel": fpga*16+channel, "value": result})
 
         await self.telnet.disconnect()
 
         if not stopping:  #stop button was not pressed
            logging.debug("Finished taking data.")
-           await ws.send_json({
-              "type": "status",
-              "message": "finished taking data",
-           })
+           await ws.send_json({"type": "status", "message": "finished taking data"})
         else:
            logging.debug("Data taking was stopped by WebSocket client.")
-           await ws.send_json({
-              "type": "error",
-              "message": "data taking was stopped",
-           })
+           await ws.send_json({"type": "error", "message": "data taking was stopped"})
 
         stopping=False
         running=False
@@ -246,9 +233,10 @@ async def ws_endpoint(ws: WebSocket):
     global running
     global stopping
 
-    await ws.accept()
+    try:
+      await ws.accept()
 
-    while True:
+      while True:
         msg = await ws.receive_json()
 
         if msg["type"] == "run":
@@ -265,6 +253,14 @@ async def ws_endpoint(ws: WebSocket):
             except asyncio.TimeoutError:
                await ws.send_json({"type": "error", "message": "Telnet connection timeout"})
                logging.error("Trying to establish a Telnet connection timed out.")
+               stopping=False
+               running=False
+               continue
+            except Exception as a:
+               await ws.send_json({"type": "error", "message": "Unknown Telnet connection error"})
+               logging.error(f"Unknown error when trying to establich Telnet connection")
+               logging.error(str(a))
+               stopping=False
                running=False
                continue
             asyncio.create_task(controller.run(feb, ws))
@@ -275,3 +271,9 @@ async def ws_endpoint(ws: WebSocket):
                logging.warning("No current measurement is on going. There is nothing to stop.")
                continue
             stopping=True
+    except WebSocketDisconnect:
+      logging.error("WebSocket got disconnected.")
+      await self.telnet.disconnect()
+      stopping=False
+      running=False
+

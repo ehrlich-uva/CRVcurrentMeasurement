@@ -44,11 +44,15 @@
       background-color: red;
       color: white;
     }
+    button:disabled {
+      background-color: gray !important;
+      cursor: not-allowed !important;
+    }
     .status {
       margin: 0 auto;
       padding: 10px;
       border: 1px solid #ccc;
-      width: 300px;
+      width: 400px;
       text-align: center;
       font-weight: bold;
       color: white;
@@ -139,8 +143,8 @@
       Threshold for current: <input type="text" id="threshold" value=0.050> uA
     </div>
     <div class="input-group">
-      <button id="start-button">Start</button>
-      <button id="stop-button">Stop</button>
+      <button disabled id="start-button">Start</button>
+      <button disabled id="stop-button">Stop</button>
     </div>
   </div>
 
@@ -253,18 +257,24 @@
     const socket = new WebSocket("ws://localhost:3300/ws");
 
     socket.onopen = function() {
-      document.getElementById('status').innerText = 'Status: Connected';
+      document.getElementById('status').innerText = 'Connected to server';
       document.getElementById('status').style.backgroundColor = 'green';
+      document.getElementById('start-button').disabled = false;
+      document.getElementById('stop-button').disabled = false;
     };
 
     socket.onclose = function() {
-      document.getElementById('status').innerText = 'Status: Disconnected';
+      document.getElementById('status').innerText = 'Disconnected from server - Try reloading';
       document.getElementById('status').style.backgroundColor = 'red';
+      document.getElementById('start-button').disabled = true;
+      document.getElementById('stop-button').disabled = true;
     };
 
     socket.onerror = function() {
-      document.getElementById('status').innerText = 'Status: Error';
+      document.getElementById('status').innerText = 'Server connetion error - Try reloading';
       document.getElementById('status').style.backgroundColor = 'red';
+      document.getElementById('start-button').disabled = true;
+      document.getElementById('stop-button').disabled = true;
     };
 
     socket.onmessage = function(event) {
