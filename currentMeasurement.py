@@ -273,7 +273,13 @@ async def ws_endpoint(ws: WebSocket):
             stopping=True
     except WebSocketDisconnect:
       logging.error("WebSocket got disconnected.")
-      await self.telnet.disconnect()
+      await telnet.disconnect()
+      stopping=False
+      running=False
+    except Exception as a:
+      logging.error("WebSocket got disconnected.")
+      logging.error(str(a))
+      await telnet.disconnect()
       stopping=False
       running=False
 
