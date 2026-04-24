@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRV SiPM current measurement</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+    }
+    .inputs {
+      margin: 0 auto;
+      text-align: center;
+      display: flex;
+      flex-direction: row;
+      gap: 20px;
+    }
+    .input-group {
+      margin: 0 auto;
+      text-align: center;
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    .inputs input {
+      margin: 5px;
+      padding: 8px;
+      font-size: 14px;
+    }
+    #start-button {
+      padding: 25px 50px;
+      font-size: 20px;
+      background-color: green;
+      color: white;
+    }
+    #stop-button {
+      padding: 25px 50px;
+      font-size: 20px;
+      background-color: red;
+      color: white;
+    }
+    .status {
+      margin: 0 auto;
+      padding: 10px;
+      border: 1px solid #ccc;
+      width: 300px;
+      text-align: center;
+      font-weight: bold;
+      color: white;
+    }
+    /* Container for the 2x2 grid of fpgas */
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-gap: 40px;
+      margin-top: 20px;
+      width: 100%;
+      justify-items: center;
+    }
+    /* Each fpga */
+    .fpga {
+      width: 480px; /* Fixed width for each fpga */
+      height: 180px; /* Fixed height for each fpga */
+      text-align: center;
+      background-color: white;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+      display: grid;
+      grid-template-rows: auto auto auto auto;
+      justify-content: flex-start;
+    }
+    .fpga h2 {
+      margin-bottom: 10px;
+    }
+    .cmb-container {
+      display: grid;
+      grid-template-columns: 80px repeat(4, 90px);
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .cmb-label {
+      font-size: 14px;
+      font-weight: bold;
+      white-space: nowrap;
+      text-align: left;
+    }
+    .field {
+      width: 70px; /* Fixed width for each field */
+      height: 25px; /* Fixed height for each field */
+      background-color: gray;
+      border-radius: 5px;
+      font-size: 14px;
+      font-weight: bold;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative; /* Allow absolute positioning inside the field */
+    }
+    .field-label {
+      font-size: 12px;
+      font-weight: normal;
+      margin-bottom: 5px;
+      text-align: center;
+    }
+    /* Positioning the index number outside the field on the left side */
+    .index-label {
+      font-size: 10px;
+      font-weight: normal;
+      position: absolute;
+      top: 6px;
+      left: -75px;
+      width: 70px;
+      text-align: right;
+      color: black;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>CRV SiPM current measurement</h1>
+  
+  <div class="inputs">
+    <div class="input-group">
+      ROC IP:port: <input type="text" id="ip-port">
+    </div>
+    <div class="input-group">
+      FEB (1-24): <input type="text" id="feb">
+    </div>
+    <div class="input-group">
+      Threshold for current: <input type="text" id="threshold" value=0.050> uA
+    </div>
+    <div class="input-group">
+      <button id="start-button">Start</button>
+      <button id="stop-button">Stop</button>
+    </div>
+  </div>
+
+  <div class="status" id="status">Status: Waiting for connection...</div>
+
+  <!-- Grid of 64 Fields in 2x2 FPGAs -->
+  <div class="grid-container" id="fields-container">
+    <!-- FPGA 0 -->
+    <div class="fpga" id="fpga-0">
+      <h2>FPGA 0</h2>
+      <div id="q0"></div>
+    </div>
+
+    <!-- FPGA 1 -->
+    <div class="fpga" id="fpga-1">
+      <h2>FPGA 1</h2>
+      <div id="q1"></div>
+    </div>
+
+    <!-- FPGA 2 -->
+    <div class="fpga" id="fpga-2">
+      <h2>FPGA 2</h2>
+      <div id="q2"></div>
+    </div>
+
+    <!-- FPGA 3 -->
+    <div class="fpga" id="fpga-3">
+      <h2>FPGA 3</h2>
+      <div id="q3"></div>
+    </div>
+  </div>
+
+  <script>
+    // Function to generate fields and cmbs dynamically
+    function generateFields() {
+      let index = 0;
+      for (let fpga = 0; fpga < 4; fpga++) {
+        const fpgaId = `q${fpga}`;
+        const fpgaDiv = document.getElementById(fpgaId);
+
+        for (let cmb = 1; cmb <= 4; cmb++) {
+          const cmbDiv = document.createElement('div');
+          cmbDiv.classList.add('cmb-container');
+          
+          // Create cmb label
+          const cmbLabel = document.createElement('div');
+          cmbLabel.classList.add('cmb-label');
+          cmbLabel.innerText = `CMB ${cmb + (fpga * 4)}`;
+          cmbDiv.appendChild(cmbLabel);
+
+          // Create 4 fields per cmb
+          for (let col = 1; col <= 4; col++) {
+            const fieldId = `field-${index}`;
+            const fieldDiv = document.createElement('div');
+            fieldDiv.classList.add('field');
+            fieldDiv.id = fieldId;
+
+            // Add the field to the current cmb
+            cmbDiv.appendChild(fieldDiv);
+
+            // Add measured current value of this channel inside the field
+            const measuredValue = document.createElement('div');
+            measuredValue.classList.add('measured-value');
+	    measuredValue.id = `channel-${index}`;
+            measuredValue.innerText = '0.000'; // Default value
+            fieldDiv.appendChild(measuredValue);
+
+            // Add index label outside the field, at the upper-left corner
+            const indexLabel = document.createElement('div');
+            indexLabel.classList.add('index-label');
+            indexLabel.innerText = `${index}`; // Only show the index number
+            fieldDiv.appendChild(indexLabel);
+
+            index++;
+          }
+
+          // Append cmb to the fpga
+          fpgaDiv.appendChild(cmbDiv);
+        }
+      }
+    }
+
+    // Function to update the field colors based on their values
+    function updateFieldColor(fieldId, value) {
+      const field = document.getElementById('field-'+fieldId);
+      if(field) {
+         const threshold = parseFloat(document.getElementById('threshold').value);
+
+	 let color = 'gray'; // Default color
+
+         if (isNaN(value)) {
+           color = 'gray';
+	 } else if (value === 0) {
+           color = 'blue';
+         } else if (value < 0) {
+           color = 'blue';
+         } else if (value < threshold) {
+           color = 'green';
+         } else {
+           color = 'red';
+         }
+
+         field.style.backgroundColor = color;
+      }
+    }
+
+    document.getElementById('status').style.backgroundColor = 'gray';
+
+    // WebSocket functionality
+    const socket = new WebSocket("ws://localhost:3300/ws");
+
+    socket.onopen = function() {
+      document.getElementById('status').innerText = 'Status: Connected';
+      document.getElementById('status').style.backgroundColor = 'green';
+    };
+
+    socket.onclose = function() {
+      document.getElementById('status').innerText = 'Status: Disconnected';
+      document.getElementById('status').style.backgroundColor = 'red';
+    };
+
+    socket.onerror = function() {
+      document.getElementById('status').innerText = 'Status: Error';
+      document.getElementById('status').style.backgroundColor = 'red';
+    };
+
+    socket.onmessage = function(event) {
+      const data = JSON.parse(event.data);
+        
+      if(data.type === "error") {
+        document.getElementById('status').innerText = data.message;
+        document.getElementById('status').style.backgroundColor = 'red';
+      }
+
+      if(data.type === "status") {
+        document.getElementById('status').innerText = data.message;
+        document.getElementById('status').style.backgroundColor = 'green';
+      }
+
+      if(data.type === "result") {
+
+        const channel = document.getElementById('channel-' + data.channel);
+        if (channel) {
+	  if(isNaN(data.value)) {
+	    channel.innerText = data.value;  //e.g. error message
+            updateFieldColor(data.channel, data.value);
+	  } else { 
+	    channel.innerText = data.value.toFixed(3); // Format to 3 decimal places
+            updateFieldColor(data.channel, data.value);
+	  }
+	}
+      }
+    };
+
+    // Event listener for the start button
+    document.getElementById('start-button').addEventListener('click', function() {
+      const ipPort = document.getElementById('ip-port').value;
+      const [ip, port] = ipPort.split(':');
+      const feb = parseFloat(document.getElementById('feb').value);
+      const threshold = parseFloat(document.getElementById('threshold').value);
+      
+      if (ip && port && !isNaN(feb) && !isNaN(threshold)) {
+        socket.send(JSON.stringify({
+           type: "run",
+           ip: ip,
+	   port: port,
+	   feb: feb
+        }));
+        document.getElementById('status').innerText = 'Sent request to start';
+        document.getElementById('status').style.backgroundColor = 'green';
+      } else {
+        document.getElementById('status').innerText = 'Invalid input';
+        document.getElementById('status').style.backgroundColor = 'red';
+      }
+    });
+
+    // Event listener for the stop button
+    document.getElementById('stop-button').addEventListener('click', function() {
+      socket.send(JSON.stringify({
+         type: "stop"
+      }));
+      document.getElementById('status').innerText = 'Sent request to stop';
+      document.getElementById('status').style.backgroundColor = 'red';
+    });
+
+    // Initialize the grid of fields when the page loads
+    window.onload = function() {
+      generateFields();
+    };
+  </script>
+
+</body>
+</html>
