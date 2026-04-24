@@ -25,7 +25,7 @@ To start the GUI do the following steps.
    `ssh -L 3300:mu2e-dcs-01.fnal.gov:3300 -J mu2ecrv@mu2egateway01.fnal.gov mu2ecrv@mu2e-dcs-01.fnal.gov`
 
 2. Start the program  
-   <pre>cd path/to/files  
+   <pre>cd path/to/files/  #currently cd CRVcurrentMeasurement/  
    python3 currentMeasurement.py</pre>
 
 3. Start the GUI  
