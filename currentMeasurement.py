@@ -242,7 +242,7 @@ async def ws_endpoint(ws: WebSocket):
         if msg["type"] == "run":
             logging.debug("A run message was received.")
             if running:   #don't run it multiple times
-                logging.warning("A current measurement is on going. Can't start a second one.")
+                logging.warning("A current measurement is running. Can't start a second one.")
                 continue
             running=True
             ip = msg["ip"]
@@ -263,12 +263,14 @@ async def ws_endpoint(ws: WebSocket):
                stopping=False
                running=False
                continue
-            asyncio.create_task(controller.run(feb, ws))
+
+            await ws.send_json({"type": "starting"})
+            asyncio.create_task(controller.run(feb, ws))  #needs to be in asyncio task so that e.g. a stop messages can be received while it is running
 
         if msg["type"] == "stop":
             logging.debug("A stop message was received.")
             if not running:   #nothing to do, if it's not running
-               logging.warning("No current measurement is on going. There is nothing to stop.")
+               logging.warning("No current measurement is running. There is nothing to stop.")
                continue
             stopping=True
     except WebSocketDisconnect:

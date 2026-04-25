@@ -310,8 +310,13 @@
         document.getElementById('status').style.backgroundColor = 'green';
       }
 
-      if(data.type === "result") {
+      if(data.type === "starting") {
+        resetFields();
+        document.getElementById('status').innerText = 'Start request received';
+        document.getElementById('status').style.backgroundColor = 'green';
+      }
 
+      if(data.type === "result") {
         const channel = document.getElementById('channel-' + data.channel);
         if (channel) {
 	  if(isNaN(data.value)) {
@@ -333,15 +338,12 @@
       const threshold = parseFloat(document.getElementById('threshold').value);
       
       if (ip && port && !isNaN(feb) && !isNaN(threshold)) {
-        resetFields();
         socket.send(JSON.stringify({
            type: "run",
            ip: ip,
 	   port: port,
 	   feb: feb
         }));
-        document.getElementById('status').innerText = 'Sent request to start';
-        document.getElementById('status').style.backgroundColor = 'green';
       } else {
         document.getElementById('status').innerText = 'Invalid input';
         document.getElementById('status').style.backgroundColor = 'red';
